@@ -1,0 +1,33 @@
+{
+  "name": "create-vtex-io-app",
+  "version": "0.0.1",
+  "description": "Create a fullstack VTEX IO app by running one command.",
+  "author": "Cubos",
+  "homepage": "https://cubos.io",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cubos-vtex/create-vtex-io-app.git"
+  },
+  "main": "index.js",
+  "bin": "index.js",
+  "type": "module",
+  "scripts": {},
+  "keywords": [
+    "create-app",
+    "cubos",
+    "fullstack",
+    "vtex",
+    "vtex-io"
+  ],
+  "dependencies": {
+    "inquirer": "^12.6.0",
+    "replace-in-file": "^8.3.0"
+  },
+  "devDependencies": {
+    "@vtex/prettier-config": "^0.3.6",
+    "eslint": "^7.16.0",
+    "eslint-config-vtex": "^12.9.3",
+    "prettier": "^2.2.1"
+  }
+}

@@ -3,11 +3,23 @@
   "projectOwner": "cubos-vtex",
   "repoType": "github",
   "repoHost": "https://github.com",
-  "files": ["README.md"],
+  "files": [
+    "README.md"
+  ],
   "imageSize": 100,
   "commit": true,
   "commitConvention": "none",
-  "contributors": [],
+  "contributors": [
+    {
+      "login": "tiago-freire",
+      "name": "Tiago Freire",
+      "avatar_url": "https://avatars.githubusercontent.com/u/921910?v=4",
+      "profile": "https://github.com/tiago-freire",
+      "contributions": [
+        "code"
+      ]
+    }
+  ],
   "contributorsPerLine": 7,
   "commitType": "docs"
 }

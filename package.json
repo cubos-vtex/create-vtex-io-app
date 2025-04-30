@@ -1,7 +1,7 @@
 {
   "name": "create-vtex-io-app",
   "version": "0.0.1",
-  "description": "Create a fullstack VTEX IO app by running one command.",
+  "description": "Sets up a fullstack VTEX IO application by running one command.",
   "author": "Cubos",
   "homepage": "https://cubos.io",
   "license": "ISC",

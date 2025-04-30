@@ -8,7 +8,7 @@
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 <!-- DOCS-IGNORE:end -->
 
-Create a fullstack VTEX IO app by running one command:
+Sets up a fullstack VTEX IO application by running one command:
 
 ```shell
 npx github:cubos-vtex/create-vtex-io-app

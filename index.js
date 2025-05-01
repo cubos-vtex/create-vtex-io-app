@@ -11,46 +11,69 @@ const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
 
 function execCommand(command, options = {}) {
   try {
-    execSync(command, { stdio: 'inherit', ...options })
+    const output = execSync(command, { stdio: 'pipe', ...options })
+
+    return output.toString()
   } catch (e) {
     throw new Error(`Error executing command: ${command}`)
   }
 }
 
+const trimFilter = (input) => input.trim()
+
+const validateEmpty = (input) => (input ? true : `Cannot be empty!`)
+
+const COMMON_INPUT_OPTIONS = {
+  type: 'input',
+  validate: validateEmpty,
+  filter: trimFilter,
+}
+
+const REQUIRED_YARN_VERSION = '1.22'
+
 async function main() {
   console.info('\n🚀 Create VTEX IO App Setup\n')
 
-  const answers = await inquirer.prompt([
-    {
-      type: 'input',
-      name: 'appName',
-      message: 'What is the app name?',
-      validate: (input) => (input ? true : 'App name cannot be empty!'),
-    },
-    {
-      type: 'input',
-      name: 'appVendor',
-      message: 'What is the app vendor?',
-      default: 'ssesandbox04',
-      validate: (input) => (input ? true : 'App vendor cannot be empty!'),
-    },
-    {
-      type: 'input',
-      name: 'appTitle',
-      message: 'What is the app title?',
-      validate: (input) => (input ? true : 'App title cannot be empty!'),
-    },
-    {
-      type: 'input',
-      name: 'appDescription',
-      default: '',
-      message: 'What is the app description?',
-    },
-  ])
+  const yarnVersion = execCommand('yarn --version')
 
-  const { appName, appVendor, appTitle, appDescription } = answers
+  if (!yarnVersion.startsWith(REQUIRED_YARN_VERSION)) {
+    throw new Error(`Yarn ${REQUIRED_YARN_VERSION}.x is required.`)
+  }
 
-  console.info('\n✅ Cloning template...\n')
+  const { appName, appVendor, appTitle, appDescription } =
+    await inquirer.prompt([
+      {
+        ...COMMON_INPUT_OPTIONS,
+        name: 'appName',
+        message: 'What is the app name?',
+      },
+      {
+        ...COMMON_INPUT_OPTIONS,
+        name: 'appVendor',
+        message: 'What is the app vendor?',
+        default: 'ssesandbox04',
+      },
+      {
+        ...COMMON_INPUT_OPTIONS,
+        name: 'appTitle',
+        message: 'What is the app title?',
+      },
+      {
+        ...COMMON_INPUT_OPTIONS,
+        name: 'appDescription',
+        default: '',
+        message: 'What is the app description?',
+        filter: (input) => {
+          const description = trimFilter(input)
+
+          return description.endsWith('.') || !description
+            ? description
+            : `${description}.`
+        },
+      },
+    ])
+
+  console.info('\n✅ Cloning and customizing the template...\n')
 
   execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
 
@@ -72,14 +95,7 @@ async function main() {
       /<APP_TITLE>/g,
       /<APP_DESCRIPTION>/g,
     ],
-    to: [
-      appName.trim(),
-      appVendor.trim(),
-      appTitle.trim(),
-      appDescription.trim().endsWith('.') || !appDescription.trim()
-        ? appDescription.trim()
-        : `${appDescription.trim()}.`,
-    ],
+    to: [appName, appVendor, appTitle, appDescription],
   }
 
   const results = replaceInFileSync(options)
@@ -92,14 +108,29 @@ async function main() {
     console.info('\n⚠️  No replacements occurred.')
   }
 
-  console.info('\n✅ Creating first commit...\n')
-
   execCommand('git add .', { cwd: projectPath })
   execCommand('git commit -m "feat: initial commit"', { cwd: projectPath })
+  console.info('\n✅ Created the first commit.\n')
 
-  console.info('\n🎉 Setup completed!\n')
+  const { openInVsCode } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'openInVsCode',
+      message: 'Do you want to open your new app folder in VS Code?',
+      default: false,
+    },
+  ])
+
+  if (openInVsCode) {
+    console.info(`\nOpening folder "${projectPath}" in VS Code...`)
+    execCommand(`code ${projectPath}`)
+  }
+
+  console.info(
+    `\n🎉 Setup completed! Your project is ready in "${projectPath}".\n`
+  )
 }
 
 main().catch((error) => {
-  console.error('\n❌', error.message)
+  console.error('\n❌', error.message, '\n')
 })

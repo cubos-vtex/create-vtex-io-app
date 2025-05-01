@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { execSync } from 'child_process'
+import { exec } from 'child_process'
 import fs from 'fs'
 import path from 'path'
 
@@ -8,37 +8,70 @@ import inquirer from 'inquirer'
 import { replaceInFileSync } from 'replace-in-file'
 
 const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
-
-function execCommand(command, options = {}) {
-  try {
-    const output = execSync(command, { stdio: 'pipe', ...options })
-
-    return output.toString()
-  } catch (e) {
-    throw new Error(`Error executing command: ${command}`)
-  }
-}
-
+const NODE_VERSION_REGEX = /^v(\d+)\./
+const REQUIRED_NODE_MIN_VERSION = 18
+const REQUIRED_NODE_MESSAGE = `node >= ${REQUIRED_NODE_MIN_VERSION} is required`
+const REQUIRED_YARN_VERSION = '1.22'
+const REQUIRED_YARN_MESSAGE = `yarn ${REQUIRED_YARN_VERSION}.x is required`
+const REQUIRED_GIT_MESSAGE = 'git is required'
+const JOIN_REQUIREMENTS_ERROR = '\n   - '
 const trimFilter = (input) => input.trim()
-
 const validateEmpty = (input) => (input ? true : `Cannot be empty!`)
-
 const COMMON_INPUT_OPTIONS = {
   type: 'input',
   validate: validateEmpty,
   filter: trimFilter,
 }
 
-const REQUIRED_YARN_VERSION = '1.22'
+async function execCommand(command, options = {}) {
+  return new Promise((resolve, reject) => {
+    exec(command, { ...options }, (error, stdout, stderr) => {
+      if (error) {
+        reject(new Error(`Error executing command "${command}":\n\n${stderr}`))
+      } else {
+        resolve(stdout)
+      }
+    })
+  })
+}
+
+async function checkRequirements() {
+  const dependencyErrors = []
+
+  await execCommand('node --version')
+    .then((nodeVersion) => {
+      const [, nodeVersionNumber] = NODE_VERSION_REGEX.exec(nodeVersion)
+
+      if (+nodeVersionNumber < REQUIRED_NODE_MIN_VERSION) {
+        dependencyErrors.push(REQUIRED_NODE_MESSAGE)
+      }
+    })
+    .catch(() => dependencyErrors.push(REQUIRED_NODE_MESSAGE))
+
+  await execCommand('yarn --version')
+    .then((yarnVersion) => {
+      if (!yarnVersion.startsWith(REQUIRED_YARN_VERSION)) {
+        dependencyErrors.push(REQUIRED_YARN_MESSAGE)
+      }
+    })
+    .catch(() => dependencyErrors.push(REQUIRED_YARN_MESSAGE))
+
+  await execCommand('git --version').catch(() =>
+    dependencyErrors.push(REQUIRED_GIT_MESSAGE)
+  )
+
+  if (dependencyErrors.length) {
+    throw new Error(
+      `Error while checking requirements:\n${JOIN_REQUIREMENTS_ERROR}${dependencyErrors.join(
+        JOIN_REQUIREMENTS_ERROR
+      )}`
+    )
+  }
+}
 
 async function main() {
   console.info('\n🚀 Create VTEX IO App Setup\n')
-
-  const yarnVersion = execCommand('yarn --version')
-
-  if (!yarnVersion.startsWith(REQUIRED_YARN_VERSION)) {
-    throw new Error(`Yarn ${REQUIRED_YARN_VERSION}.x is required.`)
-  }
+  await checkRequirements()
 
   const { appName, appVendor, appTitle, appDescription } =
     await inquirer.prompt([
@@ -73,15 +106,15 @@ async function main() {
       },
     ])
 
-  console.info('\n✅ Cloning and customizing the template...\n')
-
-  execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
+  console.info('\n✅ Cloning the template')
+  await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
 
   const projectPath = path.join(process.cwd(), appName)
 
-  execCommand('yarn', { cwd: projectPath })
+  console.info('✅ Installing dependencies')
+  await execCommand('yarn', { cwd: projectPath })
   fs.rmSync(path.join(projectPath, '.git'), { recursive: true })
-  execCommand('git init', { cwd: projectPath })
+  await execCommand('git init', { cwd: projectPath })
 
   const options = {
     files: [
@@ -98,19 +131,14 @@ async function main() {
     to: [appName, appVendor, appTitle, appDescription],
   }
 
-  const results = replaceInFileSync(options)
-  const changedFiles = results.filter((r) => r.hasChanged).map((r) => r.file)
+  console.info('✅ Customizing the template')
+  replaceInFileSync(options)
 
-  if (changedFiles.length) {
-    console.info('\n✅ Replacements have occurred in the files:')
-    changedFiles.forEach((file) => console.info(`   - ${file}`))
-  } else {
-    console.info('\n⚠️  No replacements occurred.')
-  }
-
-  execCommand('git add .', { cwd: projectPath })
-  execCommand('git commit -m "feat: initial commit"', { cwd: projectPath })
-  console.info('\n✅ Created the first commit.\n')
+  console.info('✅ Creating the first commit\n')
+  await execCommand('git add .', { cwd: projectPath })
+  await execCommand('git commit -m "feat: initial commit"', {
+    cwd: projectPath,
+  })
 
   const { openInVsCode } = await inquirer.prompt([
     {
@@ -122,12 +150,12 @@ async function main() {
   ])
 
   if (openInVsCode) {
-    console.info(`\nOpening folder "${projectPath}" in VS Code...`)
-    execCommand(`code ${projectPath}`)
+    console.info(`\n✅ Opening folder "${projectPath}" in VS Code`)
+    await execCommand(`code ${projectPath}`)
   }
 
   console.info(
-    `\n🎉 Setup completed! Your project is ready in "${projectPath}".\n`
+    `\n🎉 Setup completed! Your project is ready to start in "${projectPath}".\n`
   )
 }
 

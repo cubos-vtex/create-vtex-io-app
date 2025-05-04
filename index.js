@@ -2,6 +2,7 @@
 
 import { exec } from 'child_process'
 import fs from 'fs'
+import { styleText } from 'node:util'
 import path from 'path'
 
 import inquirer from 'inquirer'
@@ -17,6 +18,10 @@ const REQUIRED_GIT_MESSAGE = 'git is required'
 const JOIN_REQUIREMENTS_ERROR = '\n   - '
 const trimFilter = (input) => input.trim()
 const validateEmpty = (input) => (input ? true : `Cannot be empty!`)
+const highlightOutput = (text) => styleText('cyan', text)
+const successOutuput = (text) =>
+  styleText('bold', styleText(['greenBright'], text))
+
 const COMMON_INPUT_OPTIONS = {
   type: 'input',
   validate: validateEmpty,
@@ -70,7 +75,7 @@ async function checkRequirements() {
 }
 
 async function main() {
-  console.info('\n🚀 Create VTEX IO App Setup\n')
+  console.info(`\n🚀 ${successOutuput('Create VTEX IO App Setup')}\n`)
   await checkRequirements()
 
   const { appName, appVendor, appTitle, appDescription } =
@@ -93,6 +98,7 @@ async function main() {
       },
       {
         ...COMMON_INPUT_OPTIONS,
+        validate: undefined,
         name: 'appDescription',
         default: '',
         message: 'What is the app description?',
@@ -106,10 +112,11 @@ async function main() {
       },
     ])
 
-  console.info('\n✅ Cloning the template')
-  await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
-
   const projectPath = path.join(process.cwd(), appName)
+  const outputProjectPath = highlightOutput(projectPath)
+
+  console.info(`\n✅ Cloning the template to ${outputProjectPath}`)
+  await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
 
   console.info('✅ Installing dependencies')
   await execCommand('yarn', { cwd: projectPath })
@@ -132,7 +139,17 @@ async function main() {
   }
 
   console.info('✅ Customizing the template')
-  replaceInFileSync(options)
+  const results = replaceInFileSync(options)
+  const changedFiles = results.filter((r) => r.hasChanged).map((r) => r.file)
+
+  if (changedFiles.length) {
+    console.info('✅ Replacements have occurred in the files:')
+    changedFiles.forEach((file) =>
+      console.info(`   - ${highlightOutput(file)}`)
+    )
+  } else {
+    console.info('⚠️ No replacements occurred')
+  }
 
   console.info('✅ Creating the first commit\n')
   await execCommand('git add .', { cwd: projectPath })
@@ -150,13 +167,39 @@ async function main() {
   ])
 
   if (openInVsCode) {
-    console.info(`\n✅ Opening folder "${projectPath}" in VS Code`)
+    console.info(`\n✅ Opening folder ${outputProjectPath} in VS Code`)
     await execCommand(`code ${projectPath}`)
   }
 
   console.info(
-    `\n🎉 Setup completed! Your project is ready to start in "${projectPath}".\n`
+    `\n🎉 ${successOutuput(
+      'Setup completed!'
+    )} Your project is ready to start in ${outputProjectPath}`
   )
+
+  const [
+    outputVtexLogin,
+    outputVtexUse,
+    outputVtexLink,
+    outuputRoute,
+    outputCustomPage,
+  ] = [
+    'vtex login {{accountName}}',
+    'vtex use {{workspaceName}}',
+    'vtex link',
+    `/_v/${appName}/get-repositories-by-org/:org`,
+    `https://{{workspaceName}}--{{accountName}}.myvtex.com/${appName}/list-repositories`,
+  ].map(highlightOutput)
+
+  console.info(`\n📌 ${styleText('bold', 'Next steps:')}
+
+   - Go to the ${outputProjectPath} folder
+   - Authenticate to vtex-cli using a VTEX account where you want to run the new app: ${outputVtexLogin}
+   - Create a workspace: ${outputVtexUse}
+   - Link the new app: ${outputVtexLink}
+   - Then you will have some samples to start your project:
+      - Route ${outuputRoute} in the backend capable of retrieving the repositories of a GitHub organization
+      - Custom page containing a custom block at the URL ${outputCustomPage}\n`)
 }
 
 main().catch((error) => {

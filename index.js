@@ -177,29 +177,41 @@ async function main() {
     )} Your project is ready to start in ${outputProjectPath}`
   )
 
+  const getCustomPage = (page) =>
+    `https://{{workspaceName}}--{{accountName}}.myvtex.com/${appName}/${page}`
+
   const [
     outputVtexLogin,
     outputVtexUse,
     outputVtexLink,
     outuputRoute,
     outputCustomPage,
+    outputQueryGraphQL,
+    outputCustomPageGraphQL,
   ] = [
     'vtex login {{accountName}}',
     'vtex use {{workspaceName}}',
     'vtex link',
     `/_v/${appName}/get-repositories-by-org/:org`,
-    `https://{{workspaceName}}--{{accountName}}.myvtex.com/${appName}/list-repositories`,
+    getCustomPage('list-repositories'),
+    'getGitHubRepositoriesByOrg',
+    getCustomPage('list-repositories-graphql'),
   ].map(highlightOutput)
+
+  const listRepositoriesDescriptionSuffix =
+    'in the backend capable of retrieving the repositories of a GitHub organization'
 
   console.info(`\n📌 ${styleText('bold', 'Next steps:')}
 
-   - Go to the ${outputProjectPath} folder
+   - Go to the ${outputProjectPath} folder in the terminal
    - Authenticate to vtex-cli using a VTEX account where you want to run the new app: ${outputVtexLogin}
    - Create a workspace: ${outputVtexUse}
    - Link the new app: ${outputVtexLink}
    - Then you will have some samples to start your project:
-      - Route ${outuputRoute} in the backend capable of retrieving the repositories of a GitHub organization
-      - Custom page containing a custom block at the URL ${outputCustomPage}\n`)
+      - Route ${outuputRoute} ${listRepositoriesDescriptionSuffix}
+      - Custom page containing a custom block at the URL ${outputCustomPage} consuming the route
+      - GraphQL query ${outputQueryGraphQL} ${listRepositoriesDescriptionSuffix}
+      - Custom page containing a custom block at the URL ${outputCustomPageGraphQL} consuming the GraphQL query\n`)
 }
 
 main().catch((error) => {

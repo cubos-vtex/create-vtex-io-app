@@ -21,10 +21,14 @@
     "vtex-io"
   ],
   "dependencies": {
+    "fs-extra": "^11.3.0",
     "inquirer": "^12.6.0",
-    "replace-in-file": "^8.3.0"
+    "replace-in-file": "^8.3.0",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "@types/yargs": "^17.0.33",
     "@vtex/prettier-config": "^0.3.6",
     "eslint": "^7.16.0",
     "eslint-config-vtex": "^12.9.3",

@@ -5,8 +5,10 @@ import fs from 'fs'
 import { styleText } from 'node:util'
 import path from 'path'
 
+import fsExtra from 'fs-extra'
 import inquirer from 'inquirer'
 import { replaceInFileSync } from 'replace-in-file'
+import yargs from 'yargs'
 
 const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
 const NODE_VERSION_REGEX = /^v(\d+)\./
@@ -115,8 +117,16 @@ async function main() {
   const projectPath = path.join(process.cwd(), appName)
   const outputProjectPath = highlightOutput(projectPath)
 
-  console.info(`\n✅ Cloning the template to ${outputProjectPath}`)
-  await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
+  const { argv } = yargs(process.argv)
+  const { t, templateDirectory = t, templatePath = templateDirectory } = argv
+
+  if (templatePath) {
+    console.info(`\n✅ Copying the template to ${outputProjectPath}`)
+    await fsExtra.copy(templatePath, appName)
+  } else {
+    console.info(`\n✅ Cloning the template to ${outputProjectPath}`)
+    await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
+  }
 
   console.info('✅ Installing dependencies')
   await execCommand('yarn', { cwd: projectPath })
@@ -153,9 +163,10 @@ async function main() {
 
   console.info('✅ Creating the first commit\n')
   await execCommand('git add .', { cwd: projectPath })
-  await execCommand('git commit -m "feat: initial commit"', {
-    cwd: projectPath,
-  })
+  await execCommand(
+    'git commit -m "feat: initial template by create-vtex-io-app"',
+    { cwd: projectPath }
+  )
 
   const { openInVsCode } = await inquirer.prompt([
     {

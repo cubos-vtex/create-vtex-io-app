@@ -125,7 +125,9 @@ async function main() {
     await fsExtra.copy(templatePath, appName)
   } else {
     console.info(`\n✅ Cloning the template to ${outputProjectPath}`)
-    await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
+    await execCommand(
+      `git clone --depth=1 ${TEMPLATE_REPO_URL} -b dev ${appName}`
+    )
   }
 
   console.info('✅ Installing dependencies')

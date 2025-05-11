@@ -24,6 +24,12 @@ const highlightOutput = (text) => styleText('cyan', text)
 const successOutuput = (text) =>
   styleText('bold', styleText(['greenBright'], text))
 
+const VTEX_COMMANDS = {
+  login: 'vtex login {{accountName}}',
+  use: 'vtex use {{workspaceName}}',
+  link: 'vtex link',
+}
+
 const COMMON_INPUT_OPTIONS = {
   type: 'input',
   validate: validateEmpty,
@@ -128,10 +134,13 @@ async function main() {
     await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
   }
 
-  console.info('✅ Installing dependencies')
-  await execCommand('yarn', { cwd: projectPath })
+  console.info('✅ Initializing git')
   fs.rmSync(path.join(projectPath, '.git'), { recursive: true })
   await execCommand('git init', { cwd: projectPath })
+
+  console.info('✅ Installing dependencies')
+  await execCommand('yarn', { cwd: projectPath })
+  await execCommand('npm rebuild', { cwd: projectPath })
 
   const options = {
     files: [
@@ -188,41 +197,89 @@ async function main() {
     )} Your project is ready to start in ${outputProjectPath}`
   )
 
-  const getCustomPage = (page) =>
-    `https://{{workspaceName}}--{{accountName}}.myvtex.com/${appName}/${page}`
+  function getBackendResourceOutput(resourceType, resource, description) {
+    return `${resourceType} ${resource} in the backend to ${description}`
+  }
 
-  const [
-    outputVtexLogin,
-    outputVtexUse,
-    outputVtexLink,
-    outuputRoute,
-    outputCustomPage,
-    outputQueryGraphQL,
-    outputCustomPageGraphQL,
-  ] = [
-    'vtex login {{accountName}}',
-    'vtex use {{workspaceName}}',
-    'vtex link',
-    `/_v/${appName}/get-repositories-by-org/:org`,
-    getCustomPage('list-repositories'),
-    'getGitHubRepositoriesByOrg',
-    getCustomPage('list-repositories-graphql'),
-  ].map(highlightOutput)
+  function getCustomPageOutput(page, resourceType, resource) {
+    const prefix = 'Custom page containing a custom block at the URL'
+    const baseUrl = 'https://{{workspaceName}}--{{accountName}}.myvtex.com'
+    const pageUrl = highlightOutput(`${baseUrl}/${appName}/${page}`)
+    const suffix = `consuming the ${resourceType} ${resource}`
 
-  const listRepositoriesDescriptionSuffix =
-    'in the backend capable of retrieving the repositories of a GitHub organization'
+    return `${prefix} ${pageUrl} ${suffix}`
+  }
+
+  const outputVtexLogin = highlightOutput(VTEX_COMMANDS.login)
+  const outputVtexUse = highlightOutput(VTEX_COMMANDS.use)
+  const outputVtexLink = highlightOutput(VTEX_COMMANDS.link)
+
+  const outuputGithubRepositoriesRoute = highlightOutput(
+    `/_v/${appName}/get-repositories-by-org/:org`
+  )
+
+  const outputListRepositoriesRoute = getBackendResourceOutput(
+    'Route',
+    outuputGithubRepositoriesRoute,
+    'list the repositories of a GitHub organization'
+  )
+
+  const outputCustomPageGithub = getCustomPageOutput(
+    'list-repositories',
+    'route',
+    outuputGithubRepositoriesRoute
+  )
+
+  const outputGithubRepositoriesQueryGraphQL = highlightOutput(
+    'getGitHubRepositoriesByOrg'
+  )
+
+  const outputListRepositoriesGraphQL = getBackendResourceOutput(
+    'GraphQL query',
+    outputGithubRepositoriesQueryGraphQL,
+    'list the repositories of a GitHub organization'
+  )
+
+  const outputCustomPageGithubGraphQL = getCustomPageOutput(
+    'list-repositories-graphql',
+    'GraphQL query',
+    outputGithubRepositoriesQueryGraphQL
+  )
+
+  const outuputTasksRoute = highlightOutput(`/_v/${appName}/tasks`)
+  const outputCreateListTasks = getBackendResourceOutput(
+    'Route',
+    outuputTasksRoute,
+    'create a task or list tasks'
+  )
+
+  const outuputTasksIdRoute = highlightOutput(`/_v/${appName}/tasks/:id`)
+  const outputGetUpdateDeleteTasks = getBackendResourceOutput(
+    'Route',
+    outuputTasksIdRoute,
+    'get, update or delete a task'
+  )
+
+  const outputCustomPageTasks = getCustomPageOutput(
+    'tasks',
+    'routes',
+    `${outuputTasksRoute} and ${outuputTasksIdRoute}`
+  )
 
   console.info(`\n📌 ${styleText('bold', 'Next steps:')}
 
    - Go to the ${outputProjectPath} folder in the terminal
    - Authenticate to vtex-cli using a VTEX account where you want to run the new app: ${outputVtexLogin}
    - Create a workspace: ${outputVtexUse}
-   - Link the new app: ${outputVtexLink}
-   - Then you will have some samples to start your project:
-      - Route ${outuputRoute} ${listRepositoriesDescriptionSuffix}
-      - Custom page containing a custom block at the URL ${outputCustomPage} consuming the route
-      - GraphQL query ${outputQueryGraphQL} ${listRepositoriesDescriptionSuffix}
-      - Custom page containing a custom block at the URL ${outputCustomPageGraphQL} consuming the GraphQL query\n`)
+   - Link the new app: ${outputVtexLink}\n
+   Then you will have some samples to start your project:\n
+      - ${outputListRepositoriesRoute}\n
+      - ${outputCustomPageGithub}\n
+      - ${outputListRepositoriesGraphQL}\n
+      - ${outputCustomPageGithubGraphQL}\n
+      - ${outputCreateListTasks}\n
+      - ${outputGetUpdateDeleteTasks}\n
+      - ${outputCustomPageTasks}\n`)
 }
 
 main().catch((error) => {

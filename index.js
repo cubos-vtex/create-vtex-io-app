@@ -13,22 +13,29 @@ import yargs from 'yargs'
 const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
 const NODE_VERSION_REGEX = /^v(\d+)\./
 const REQUIRED_NODE_MIN_VERSION = 18
-const REQUIRED_NODE_MESSAGE = `node >= ${REQUIRED_NODE_MIN_VERSION} is required`
+const REQUIRED_NODE_MESSAGE = `Node >= ${REQUIRED_NODE_MIN_VERSION} is required`
+const REQUIRED_NPM_MESSAGE = 'NPM is required'
 const REQUIRED_YARN_VERSION = '1.22'
-const REQUIRED_YARN_MESSAGE = `yarn ${REQUIRED_YARN_VERSION}.x is required`
-const REQUIRED_GIT_MESSAGE = 'git is required'
+const REQUIRED_YARN_MESSAGE = `Yarn ${REQUIRED_YARN_VERSION}.x is required`
+const REQUIRED_GIT_MESSAGE = 'Git is required'
 const JOIN_REQUIREMENTS_ERROR = '\n   - '
+const KEBAB_REGEX = /^(?![\d-])[a-z\d]+[a-z\d-]*(?<!-)$/
+const ALPHANUMERIC_REGEX = /^[a-z\d]+$/
+const OPTIONAL_LABEL = styleText('dim', '(optional)')
+const VTEX_COMMANDS = {
+  login: 'vtex login {{accountName}}',
+  use: 'vtex use {{workspaceName}}',
+  link: 'vtex link --clean',
+}
+
 const trimFilter = (input) => input.trim()
-const validateEmpty = (input) => (input ? true : `Cannot be empty!`)
+const validateEmpty = (input) => !!trimFilter(input)
 const highlightOutput = (text) => styleText('cyan', text)
 const successOutuput = (text) =>
   styleText('bold', styleText(['greenBright'], text))
 
-const VTEX_COMMANDS = {
-  login: 'vtex login {{accountName}}',
-  use: 'vtex use {{workspaceName}}',
-  link: 'vtex link',
-}
+const logStepSuccess = (text) => console.info(`✅ ${text}`)
+const logStepWarning = (text) => console.info(`⚠️  ${text}`)
 
 const COMMON_INPUT_OPTIONS = {
   type: 'input',
@@ -61,6 +68,10 @@ async function checkRequirements() {
     })
     .catch(() => dependencyErrors.push(REQUIRED_NODE_MESSAGE))
 
+  await execCommand('npm --version').catch(() =>
+    dependencyErrors.push(REQUIRED_NPM_MESSAGE)
+  )
+
   await execCommand('yarn --version')
     .then((yarnVersion) => {
       if (!yarnVersion.startsWith(REQUIRED_YARN_VERSION)) {
@@ -82,8 +93,30 @@ async function checkRequirements() {
   }
 }
 
+async function hasVsCode() {
+  return execCommand('code --version').catch(() => false)
+}
+
+async function hasGitUser() {
+  const hasUserName = await execCommand('git config --get user.name')
+    .then((output) => !!output.trim())
+    .catch(() => false)
+
+  const hasUserEmail = await execCommand('git config --get user.email')
+    .then((output) => !!output.trim())
+    .catch(() => false)
+
+  return hasUserName && hasUserEmail
+}
+
+async function verifyVTEXAccount(account) {
+  return fetch(
+    `https://${account}.myvtex.com/api/sessions?items=account.accountName`
+  ).then((r) => r.ok)
+}
+
 async function main() {
-  console.info(`\n🚀 ${successOutuput('Create VTEX IO App Setup')}\n`)
+  console.info(`\n🚀 ${successOutuput('Create VTEX IO App')}\n`)
   await checkRequirements()
 
   const { appName, appVendor, appTitle, appDescription } =
@@ -92,12 +125,41 @@ async function main() {
         ...COMMON_INPUT_OPTIONS,
         name: 'appName',
         message: 'What is the app name?',
+        validate: (input) => {
+          if (!COMMON_INPUT_OPTIONS.validate(input)) {
+            return false
+          }
+
+          if (!KEBAB_REGEX.test(COMMON_INPUT_OPTIONS.filter(input))) {
+            return 'Invalid app name. Use kebab-case (lowercase letters and hyphens only). Do not start with a number or hyphen, and avoid special characters.'
+          }
+
+          return true
+        },
       },
       {
         ...COMMON_INPUT_OPTIONS,
         name: 'appVendor',
         message: 'What is the app vendor?',
-        default: 'ssesandbox04',
+        validate: async (input) => {
+          if (!COMMON_INPUT_OPTIONS.validate(input)) {
+            return false
+          }
+
+          const account = COMMON_INPUT_OPTIONS.filter(input)
+
+          if (!ALPHANUMERIC_REGEX.test(account)) {
+            return 'Invalid app vendor. Use lowercase letters and numbers only.'
+          }
+
+          const accountExists = await verifyVTEXAccount(account)
+
+          if (!accountExists) {
+            return `VTEX account "${account}" does not exist. The app vendor must be an existing account.`
+          }
+
+          return true
+        },
       },
       {
         ...COMMON_INPUT_OPTIONS,
@@ -109,11 +171,14 @@ async function main() {
         validate: undefined,
         name: 'appDescription',
         default: '',
-        message: 'What is the app description?',
+        message: `What is the app description? ${OPTIONAL_LABEL}`,
         filter: (input) => {
-          const description = trimFilter(input)
+          const description = COMMON_INPUT_OPTIONS.filter(input)
 
-          return description.endsWith('.') || !description
+          return description.endsWith('.') ||
+            description.endsWith('!') ||
+            description.endsWith('?') ||
+            !description
             ? description
             : `${description}.`
         },
@@ -126,23 +191,26 @@ async function main() {
   const { argv } = yargs(process.argv)
   const { t, templateDirectory = t, templatePath = templateDirectory } = argv
 
+  console.info()
+
   if (templatePath) {
-    console.info(`\n✅ Copying the template to ${outputProjectPath}`)
+    logStepSuccess(`Copying the template to ${outputProjectPath}`)
     await fsExtra.copy(templatePath, appName)
   } else {
-    console.info(`\n✅ Cloning the template to ${outputProjectPath}`)
+    logStepSuccess(`Cloning the template to ${outputProjectPath}`)
     await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
   }
 
-  console.info('✅ Initializing git')
+  logStepSuccess('Initializing git')
   fs.rmSync(path.join(projectPath, '.git'), { recursive: true })
   await execCommand('git init', { cwd: projectPath })
 
-  console.info('✅ Installing dependencies')
+  logStepSuccess('Installing dependencies')
   await execCommand('yarn', { cwd: projectPath })
   await execCommand('npm rebuild', { cwd: projectPath })
 
-  const options = {
+  logStepSuccess('Customizing the template')
+  replaceInFileSync({
     files: [
       `${projectPath}/**/*.{json,md,ts,tsx}`,
       `${projectPath}/.all-contributorsrc`,
@@ -155,40 +223,41 @@ async function main() {
       /<APP_DESCRIPTION>/g,
     ],
     to: [appName, appVendor, appTitle, appDescription],
-  }
+  })
 
-  console.info('✅ Customizing the template')
-  const results = replaceInFileSync(options)
-  const changedFiles = results.filter((r) => r.hasChanged).map((r) => r.file)
+  const gitOK = await hasGitUser()
 
-  if (changedFiles.length) {
-    console.info('✅ Replacements have occurred in the files:')
-    changedFiles.forEach((file) =>
-      console.info(`   - ${highlightOutput(file)}`)
+  if (gitOK) {
+    logStepSuccess('Creating the first commit\n')
+    await execCommand('git add .', { cwd: projectPath })
+    await execCommand(
+      'git commit -m "feat: initial template by create-vtex-io-app"',
+      { cwd: projectPath }
     )
   } else {
-    console.info('⚠️ No replacements occurred')
+    console.info()
+    logStepWarning(
+      'Unable to create the first commit. Add a git user name and email with these commands to create the first commit later:'
+    )
+    console.info('   - git config --global --add user.name "Your Name"')
+    console.info('   - git config --global --add user.name "your@email.com"\n')
   }
 
-  console.info('✅ Creating the first commit\n')
-  await execCommand('git add .', { cwd: projectPath })
-  await execCommand(
-    'git commit -m "feat: initial template by create-vtex-io-app"',
-    { cwd: projectPath }
-  )
+  if (await hasVsCode()) {
+    const { openInVsCode } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'openInVsCode',
+        message: 'Do you want to open your new app folder in VS Code?',
+        default: false,
+      },
+    ])
 
-  const { openInVsCode } = await inquirer.prompt([
-    {
-      type: 'confirm',
-      name: 'openInVsCode',
-      message: 'Do you want to open your new app folder in VS Code?',
-      default: false,
-    },
-  ])
-
-  if (openInVsCode) {
-    console.info(`\n✅ Opening folder ${outputProjectPath} in VS Code`)
-    await execCommand(`code ${projectPath}`)
+    if (openInVsCode) {
+      console.info()
+      logStepSuccess(`Opening folder ${outputProjectPath} in VS Code`)
+      await execCommand(`code ${projectPath}`)
+    }
   }
 
   console.info(
@@ -273,12 +342,12 @@ async function main() {
    - Create a workspace: ${outputVtexUse}
    - Link the new app: ${outputVtexLink}\n
    Then you will have some samples to start your project:\n
-      - ${outputListRepositoriesRoute}\n
-      - ${outputCustomPageGithub}\n
-      - ${outputListRepositoriesGraphQL}\n
-      - ${outputCustomPageGithubGraphQL}\n
-      - ${outputCreateListTasks}\n
-      - ${outputGetUpdateDeleteTasks}\n
+      - ${outputListRepositoriesRoute}
+      - ${outputCustomPageGithub}
+      - ${outputListRepositoriesGraphQL}
+      - ${outputCustomPageGithubGraphQL}
+      - ${outputCreateListTasks}
+      - ${outputGetUpdateDeleteTasks}
       - ${outputCustomPageTasks}\n`)
 }
 

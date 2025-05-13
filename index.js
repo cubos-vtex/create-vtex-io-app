@@ -123,22 +123,6 @@ async function main() {
     await inquirer.prompt([
       {
         ...COMMON_INPUT_OPTIONS,
-        name: 'appName',
-        message: 'What is the app name?',
-        validate: (input) => {
-          if (!COMMON_INPUT_OPTIONS.validate(input)) {
-            return false
-          }
-
-          if (!KEBAB_REGEX.test(COMMON_INPUT_OPTIONS.filter(input))) {
-            return 'Invalid app name. Use kebab-case (lowercase letters and hyphens only). Do not start with a number or hyphen, and avoid special characters.'
-          }
-
-          return true
-        },
-      },
-      {
-        ...COMMON_INPUT_OPTIONS,
         name: 'appVendor',
         message: 'What is the app vendor?',
         validate: async (input) => {
@@ -156,6 +140,22 @@ async function main() {
 
           if (!accountExists) {
             return `VTEX account "${account}" does not exist. The app vendor must be an existing account.`
+          }
+
+          return true
+        },
+      },
+      {
+        ...COMMON_INPUT_OPTIONS,
+        name: 'appName',
+        message: 'What is the app name?',
+        validate: (input) => {
+          if (!COMMON_INPUT_OPTIONS.validate(input)) {
+            return false
+          }
+
+          if (!KEBAB_REGEX.test(COMMON_INPUT_OPTIONS.filter(input))) {
+            return 'Invalid app name. Use kebab-case (lowercase letters and hyphens only). Do not start with a number or hyphen, and avoid special characters.'
           }
 
           return true

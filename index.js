@@ -186,6 +186,8 @@ async function main() {
     ])
 
   const projectPath = path.join(process.cwd(), appName)
+  const projectReactPath = path.join(process.cwd(), appName, 'react')
+  const projectNodePath = path.join(process.cwd(), appName, 'node')
   const outputProjectPath = highlightOutput(projectPath)
 
   const { argv } = yargs(process.argv)
@@ -207,6 +209,8 @@ async function main() {
 
   logStepSuccess('Installing dependencies')
   await execCommand('yarn', { cwd: projectPath })
+  await execCommand('yarn', { cwd: projectReactPath })
+  await execCommand('yarn', { cwd: projectNodePath })
   await execCommand('npm rebuild', { cwd: projectPath })
 
   logStepSuccess('Customizing the template')

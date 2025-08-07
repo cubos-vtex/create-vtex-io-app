@@ -11,6 +11,9 @@ import { replaceInFileSync } from 'replace-in-file'
 import yargs from 'yargs'
 
 const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
+const NEXT_STEPS_URL =
+  'https://github.com/cubos-vtex/create-vtex-io-app/blob/main/NEXT-STEPS.md'
+
 const NODE_VERSION_REGEX = /^v(\d+)\./
 const REQUIRED_NODE_MIN_VERSION = 18
 const REQUIRED_NODE_MESSAGE = `Node >= ${REQUIRED_NODE_MIN_VERSION} is required`
@@ -22,11 +25,6 @@ const JOIN_REQUIREMENTS_ERROR = '\n   - '
 const KEBAB_REGEX = /^(?![\d-])[a-z\d]+[a-z\d-]*(?<!-)$/
 const ALPHANUMERIC_REGEX = /^[a-z\d]+$/
 const OPTIONAL_LABEL = styleText('dim', '(optional)')
-const VTEX_COMMANDS = {
-  login: 'vtex login {{accountName}}',
-  use: 'vtex use {{workspaceName}}',
-  link: 'vtex link --clean',
-}
 
 const trimFilter = (input) => input.trim()
 const validateEmpty = (input) => !!trimFilter(input)
@@ -270,89 +268,11 @@ async function main() {
     )} Your project is ready to start in ${outputProjectPath}`
   )
 
-  function getBackendResourceOutput(resourceType, resource, description) {
-    return `${resourceType} ${resource} in the backend to ${description}`
-  }
-
-  function getCustomPageOutput(page, resourceType, resource) {
-    const prefix = 'Custom page containing a custom block at the URL'
-    const baseUrl = 'https://{{workspaceName}}--{{accountName}}.myvtex.com'
-    const pageUrl = highlightOutput(`${baseUrl}/${appName}/${page}`)
-    const suffix = `consuming the ${resourceType} ${resource}`
-
-    return `${prefix} ${pageUrl} ${suffix}`
-  }
-
-  const outputVtexLogin = highlightOutput(VTEX_COMMANDS.login)
-  const outputVtexUse = highlightOutput(VTEX_COMMANDS.use)
-  const outputVtexLink = highlightOutput(VTEX_COMMANDS.link)
-
-  const outuputGithubRepositoriesRoute = highlightOutput(
-    `/_v/${appName}/get-repositories-by-org/:org`
+  console.info(
+    `\n📌 ${styleText('bold', 'Next steps:')} ${highlightOutput(
+      NEXT_STEPS_URL
+    )}\n`
   )
-
-  const outputListRepositoriesRoute = getBackendResourceOutput(
-    'Route',
-    outuputGithubRepositoriesRoute,
-    'list the repositories of a GitHub organization'
-  )
-
-  const outputCustomPageGithub = getCustomPageOutput(
-    'list-repositories',
-    'route',
-    outuputGithubRepositoriesRoute
-  )
-
-  const outputGithubRepositoriesQueryGraphQL = highlightOutput(
-    'getGitHubRepositoriesByOrg'
-  )
-
-  const outputListRepositoriesGraphQL = getBackendResourceOutput(
-    'GraphQL query',
-    outputGithubRepositoriesQueryGraphQL,
-    'list the repositories of a GitHub organization'
-  )
-
-  const outputCustomPageGithubGraphQL = getCustomPageOutput(
-    'list-repositories-graphql',
-    'GraphQL query',
-    outputGithubRepositoriesQueryGraphQL
-  )
-
-  const outuputTasksRoute = highlightOutput(`/_v/${appName}/tasks`)
-  const outputCreateListTasks = getBackendResourceOutput(
-    'Route',
-    outuputTasksRoute,
-    'create a task or list tasks'
-  )
-
-  const outuputTasksIdRoute = highlightOutput(`/_v/${appName}/tasks/:id`)
-  const outputGetUpdateDeleteTasks = getBackendResourceOutput(
-    'Route',
-    outuputTasksIdRoute,
-    'get, update or delete a task'
-  )
-
-  const outputCustomPageTasks = getCustomPageOutput(
-    'tasks',
-    'routes',
-    `${outuputTasksRoute} and ${outuputTasksIdRoute}`
-  )
-
-  console.info(`\n📌 ${styleText('bold', 'Next steps:')}
-
-   - Go to the ${outputProjectPath} folder in the terminal
-   - Authenticate to vtex-cli using a VTEX account where you want to run the new app: ${outputVtexLogin}
-   - Create a workspace: ${outputVtexUse}
-   - Link the new app: ${outputVtexLink}\n
-   Then you will have some samples to start your project:\n
-      - ${outputListRepositoriesRoute}
-      - ${outputCustomPageGithub}
-      - ${outputListRepositoriesGraphQL}
-      - ${outputCustomPageGithubGraphQL}
-      - ${outputCreateListTasks}
-      - ${outputGetUpdateDeleteTasks}
-      - ${outputCustomPageTasks}\n`)
 }
 
 main().catch((error) => {

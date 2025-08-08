@@ -38,4 +38,4 @@ Then you will have some samples to start your project:
 
 - GraphQL mutations `saveTask` and `deleteTask` in the backend to create/update a task and to delete a task.
 
-- Custom page containing a custom block at the URL `https://{{workspaceName}}--{{accountName}}.myvtex.com/{{APP_NAME}}/tasks-graphql` consuming the GraphQL query `tasks` and the mutations `saveTask` and `deleteTask`.
+- Custom page containing a custom block at the URL `https://{{workspaceName}}--{{accountName}}.myvtex.com/{{APP_NAME}}/tasks-graphql` consuming the GraphQL queries `task` and `tasks`, and the mutations `saveTask` and `deleteTask`.

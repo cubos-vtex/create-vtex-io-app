@@ -5,15 +5,17 @@ import fs from 'fs'
 import { styleText } from 'node:util'
 import path from 'path'
 
+import { Octokit } from '@octokit/rest'
 import fsExtra from 'fs-extra'
 import inquirer from 'inquirer'
 import { replaceInFileSync } from 'replace-in-file'
 import yargs from 'yargs'
 
-const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
-const NEXT_STEPS_URL =
-  'https://github.com/cubos-vtex/create-vtex-io-app/blob/main/NEXT-STEPS.md'
+import { getGitHubToken } from './github-auth.js'
 
+const REPOSITORY_URL = 'https://github.com/cubos-vtex/create-vtex-io-app'
+const TEMPLATE_REPO_URL = 'https://github.com/cubos-vtex/vtex-io-app-template'
+const NEXT_STEPS_URL = `${REPOSITORY_URL}/blob/main/NEXT-STEPS.md`
 const NODE_VERSION_REGEX = /^v(\d+)\./
 const REQUIRED_NODE_MIN_VERSION = 18
 const REQUIRED_NODE_MESSAGE = `Node >= ${REQUIRED_NODE_MIN_VERSION} is required`
@@ -183,9 +185,10 @@ async function main() {
       },
     ])
 
-  const projectPath = path.join(process.cwd(), appName)
-  const projectReactPath = path.join(process.cwd(), appName, 'react')
-  const projectNodePath = path.join(process.cwd(), appName, 'node')
+  const repoName = `${appVendor}.${appName}`
+  const projectPath = path.join(process.cwd(), repoName)
+  const projectReactPath = path.join(process.cwd(), repoName, 'react')
+  const projectNodePath = path.join(process.cwd(), repoName, 'node')
   const outputProjectPath = highlightOutput(projectPath)
 
   const { argv } = yargs(process.argv)
@@ -195,21 +198,46 @@ async function main() {
 
   if (templatePath) {
     logStepSuccess(`Copying the template to ${outputProjectPath}`)
-    await fsExtra.copy(templatePath, appName)
+    await fsExtra.copy(templatePath, repoName)
   } else {
     logStepSuccess(`Cloning the template to ${outputProjectPath}`)
-    await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
+    await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${repoName}`)
   }
-
-  logStepSuccess('Initializing git')
-  fs.rmSync(path.join(projectPath, '.git'), { recursive: true })
-  await execCommand('git init', { cwd: projectPath })
 
   logStepSuccess('Installing dependencies')
   await execCommand('yarn', { cwd: projectPath })
   await execCommand('yarn', { cwd: projectReactPath })
   await execCommand('yarn', { cwd: projectNodePath })
   await execCommand('npm rebuild', { cwd: projectPath })
+
+  logStepSuccess('Initializing git')
+  fs.rmSync(path.join(projectPath, '.git'), { recursive: true })
+  await execCommand('git init', { cwd: projectPath })
+  await execCommand('git branch -M main', { cwd: projectPath })
+
+  logStepSuccess('Creating GitHub repository')
+
+  const githubToken = await getGitHubToken()
+  const octokit = new Octokit({ auth: githubToken })
+
+  await octokit.rest.users.getAuthenticated().catch(() => {
+    throw new Error('Invalid GitHub token')
+  })
+
+  const { data: repo } = await octokit.rest.repos.createForAuthenticatedUser({
+    name: repoName,
+    description: appDescription,
+  })
+
+  const repositoryUrl = repo.html_url
+  const repositoryUrlOutput = highlightOutput(repositoryUrl)
+
+  console.info()
+  logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
+
+  await execCommand(`git remote add origin ${repositoryUrl}`, {
+    cwd: projectPath,
+  })
 
   logStepSuccess('Customizing the template')
   replaceInFileSync({
@@ -223,19 +251,23 @@ async function main() {
       /<APP_VENDOR>/g,
       /<APP_TITLE>/g,
       /<APP_DESCRIPTION>/g,
+      /<APP_REPOSITORY_URL>/g,
     ],
-    to: [appName, appVendor, appTitle, appDescription],
+    to: [appName, appVendor, appTitle, appDescription, repositoryUrl],
   })
 
   const gitOK = await hasGitUser()
 
   if (gitOK) {
-    logStepSuccess('Creating the first commit\n')
+    logStepSuccess('Creating the first commit')
     await execCommand('git add .', { cwd: projectPath })
     await execCommand(
-      'git commit -m "feat: initial template by create-vtex-io-app"',
+      `git commit -m "feat: initial template by ${REPOSITORY_URL}"`,
       { cwd: projectPath }
     )
+
+    logStepSuccess(`Pushing to GitHub at ${repositoryUrlOutput}`)
+    await execCommand('git push -u origin main', { cwd: projectPath })
   } else {
     console.info()
     logStepWarning(
@@ -246,6 +278,8 @@ async function main() {
   }
 
   if (await hasVsCode()) {
+    console.info()
+
     const { openInVsCode } = await inquirer.prompt([
       {
         type: 'confirm',
@@ -266,6 +300,10 @@ async function main() {
     `\n🎉 ${successOutuput(
       'Setup completed!'
     )} Your project is ready to start in ${outputProjectPath}`
+  )
+
+  console.info(
+    `\nThe project is also available on GitHub at ${repositoryUrlOutput}`
   )
 
   console.info(

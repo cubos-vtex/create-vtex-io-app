@@ -12,7 +12,9 @@
   "main": "index.js",
   "bin": "index.js",
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "lint": "eslint ."
+  },
   "keywords": [
     "create-app",
     "cubos",

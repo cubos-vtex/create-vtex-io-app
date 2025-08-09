@@ -215,29 +215,94 @@ async function main() {
   await execCommand('git init', { cwd: projectPath })
   await execCommand('git branch -M main', { cwd: projectPath })
 
-  logStepSuccess('Creating GitHub repository')
+  console.info()
 
-  const githubToken = await getGitHubToken()
-  const octokit = new Octokit({ auth: githubToken })
-
-  await octokit.rest.users.getAuthenticated().catch(() => {
-    throw new Error('Invalid GitHub token')
-  })
-
-  const { data: repo } = await octokit.rest.repos.createForAuthenticatedUser({
-    name: repoName,
-    description: appDescription,
-  })
-
-  const repositoryUrl = repo.html_url
-  const repositoryUrlOutput = highlightOutput(repositoryUrl)
+  const { createRepo } = await inquirer.prompt([
+    {
+      type: 'confirm',
+      name: 'createRepo',
+      message: 'Do you want to create a GitHub repository for the new app?',
+      default: true,
+    },
+  ])
 
   console.info()
-  logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
 
-  await execCommand(`git remote add origin ${repositoryUrl}`, {
-    cwd: projectPath,
-  })
+  let repositoryUrl = ''
+
+  if (createRepo) {
+    logStepSuccess('Creating GitHub repository')
+
+    const githubToken = await getGitHubToken()
+    const octokit = new Octokit({ auth: githubToken })
+
+    await octokit.rest.users.getAuthenticated().catch(() => {
+      throw new Error('Invalid GitHub token')
+    })
+
+    console.info()
+
+    let { createInOrg } = await inquirer.prompt([
+      {
+        type: 'confirm',
+        name: 'createInOrg',
+        message: 'Do you want to create the repository in an organization?',
+        default: false,
+      },
+    ])
+
+    console.info()
+
+    let repo
+
+    if (createInOrg) {
+      const { data: orgs } = await octokit.rest.orgs.listForAuthenticatedUser()
+
+      if (orgs.length > 0) {
+        const { org } = await inquirer.prompt([
+          {
+            type: 'list',
+            name: 'org',
+            message: 'Which organization?',
+            choices: orgs.map((o) => o.login),
+          },
+        ])
+
+        console.info()
+
+        const { data } = await octokit.rest.repos.createInOrg({
+          org,
+          name: repoName,
+          description: appDescription,
+        })
+
+        repo = data
+      } else {
+        logStepWarning('You have no organizations')
+
+        createInOrg = false
+      }
+    }
+
+    if (!createInOrg) {
+      logStepSuccess('Creating the repository in your personal account')
+      const { data } = await octokit.rest.repos.createForAuthenticatedUser({
+        name: repoName,
+        description: appDescription,
+      })
+
+      repo = data
+    }
+
+    repositoryUrl = repo.html_url
+    const repositoryUrlOutput = highlightOutput(repositoryUrl)
+
+    logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
+
+    await execCommand(`git remote add origin ${repositoryUrl}`, {
+      cwd: projectPath,
+    })
+  }
 
   logStepSuccess('Customizing the template')
   replaceInFileSync({
@@ -266,8 +331,10 @@ async function main() {
       { cwd: projectPath }
     )
 
-    logStepSuccess(`Pushing to GitHub at ${repositoryUrlOutput}`)
-    await execCommand('git push -u origin main', { cwd: projectPath })
+    if (createRepo) {
+      logStepSuccess(`Pushing to GitHub at ${highlightOutput(repositoryUrl)}`)
+      await execCommand('git push -u origin main', { cwd: projectPath })
+    }
   } else {
     console.info()
     logStepWarning(
@@ -302,9 +369,13 @@ async function main() {
     )} Your project is ready to start in ${outputProjectPath}`
   )
 
-  console.info(
-    `\nThe project is also available on GitHub at ${repositoryUrlOutput}`
-  )
+  if (createRepo) {
+    console.info(
+      `\nThe project is also available on GitHub at ${highlightOutput(
+        repositoryUrl
+      )}`
+    )
+  }
 
   console.info(
     `\n📌 ${styleText('bold', 'Next steps:')} ${highlightOutput(

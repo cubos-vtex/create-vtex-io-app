@@ -94,6 +94,8 @@ export async function getGitHubToken() {
 
     const token = await pollForToken(deviceCode, interval)
 
+    console.info('You are authenticated on GitHub successfully')
+
     return token
   } catch (err) {
     const message =

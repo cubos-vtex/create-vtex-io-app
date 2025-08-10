@@ -308,7 +308,7 @@ async function main() {
 
     logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
 
-    await execCommand(`git remote add origin ${repo.ssh_url}`, {
+    await execCommand(`git remote add origin ${repositoryUrl}`, {
       cwd: projectPath,
     })
   }

@@ -4,11 +4,13 @@
 
 - Go to the generated app folder in the terminal.
 - Authenticate to vtex-cli using a VTEX account where you want to run the new app:
+
   ```shell
   vtex login {{accountName}}
   ```
 
 - Create a workspace:
+
   ```shell
   vtex use {{workspaceName}}
   ```

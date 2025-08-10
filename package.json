@@ -13,7 +13,8 @@
   "bin": "index.js",
   "type": "module",
   "scripts": {
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "format": "prettier --write"
   },
   "keywords": [
     "create-app",
@@ -24,12 +25,13 @@
   ],
   "dependencies": {
     "@octokit/rest": "^21.0.1",
+    "all-contributors-cli": "^6.26.1",
+    "axios": "^1.7.2",
     "fs-extra": "^11.3.0",
     "inquirer": "^12.6.0",
-    "replace-in-file": "^8.3.0",
-    "yargs": "^17.7.2",
     "open": "^10.1.0",
-    "axios": "^1.7.2"
+    "replace-in-file": "^8.3.0",
+    "yargs": "^17.7.2"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",

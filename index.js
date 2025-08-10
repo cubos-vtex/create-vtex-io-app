@@ -185,10 +185,9 @@ async function main() {
       },
     ])
 
-  const repoName = `${appVendor}.${appName}`
-  const projectPath = path.join(process.cwd(), repoName)
-  const projectReactPath = path.join(process.cwd(), repoName, 'react')
-  const projectNodePath = path.join(process.cwd(), repoName, 'node')
+  const projectPath = path.join(process.cwd(), appName)
+  const projectReactPath = path.join(projectPath, 'react')
+  const projectNodePath = path.join(projectPath, 'node')
   const outputProjectPath = highlightOutput(projectPath)
 
   const { argv } = yargs(process.argv)
@@ -198,10 +197,10 @@ async function main() {
 
   if (templatePath) {
     logStepSuccess(`Copying the template to ${outputProjectPath}`)
-    await fsExtra.copy(templatePath, repoName)
+    await fsExtra.copy(templatePath, appName)
   } else {
     logStepSuccess(`Cloning the template to ${outputProjectPath}`)
-    await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${repoName}`)
+    await execCommand(`git clone --depth=1 ${TEMPLATE_REPO_URL} ${appName}`)
   }
 
   logStepSuccess('Installing dependencies')
@@ -228,7 +227,10 @@ async function main() {
 
   console.info()
 
-  let repositoryUrl = ''
+  let repositoryOwner = ''
+  let githubUser = ''
+  let repositoryUrl = '<APP_REPOSITORY_URL>'
+  let repositoryUrlOutput = ''
 
   if (createRepo) {
     logStepSuccess('Creating GitHub repository')
@@ -236,9 +238,14 @@ async function main() {
     const githubToken = await getGitHubToken()
     const octokit = new Octokit({ auth: githubToken })
 
-    await octokit.rest.users.getAuthenticated().catch(() => {
+    const {
+      data: { login },
+    } = await octokit.rest.users.getAuthenticated().catch(() => {
       throw new Error('Invalid GitHub token')
     })
+
+    githubUser = login
+    repositoryOwner = login
 
     console.info()
 
@@ -272,9 +279,11 @@ async function main() {
 
         const { data } = await octokit.rest.repos.createInOrg({
           org,
-          name: repoName,
+          name: appName,
           description: appDescription,
         })
+
+        repositoryOwner = org
 
         repo = data
       } else {
@@ -287,7 +296,7 @@ async function main() {
     if (!createInOrg) {
       logStepSuccess('Creating the repository in your personal account')
       const { data } = await octokit.rest.repos.createForAuthenticatedUser({
-        name: repoName,
+        name: appName,
         description: appDescription,
       })
 
@@ -295,7 +304,7 @@ async function main() {
     }
 
     repositoryUrl = repo.html_url
-    const repositoryUrlOutput = highlightOutput(repositoryUrl)
+    repositoryUrlOutput = highlightOutput(repositoryUrl)
 
     logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
 
@@ -316,9 +325,17 @@ async function main() {
       /<APP_VENDOR>/g,
       /<APP_TITLE>/g,
       /<APP_DESCRIPTION>/g,
+      /<APP_REPOSITORY_OWNER>/g,
       /<APP_REPOSITORY_URL>/g,
     ],
-    to: [appName, appVendor, appTitle, appDescription, repositoryUrl],
+    to: [
+      appName,
+      appVendor,
+      appTitle,
+      appDescription,
+      repositoryOwner,
+      repositoryUrl,
+    ],
   })
 
   const gitOK = await hasGitUser()
@@ -332,8 +349,28 @@ async function main() {
     )
 
     if (createRepo) {
-      logStepSuccess(`Pushing to GitHub at ${highlightOutput(repositoryUrl)}`)
-      await execCommand('git push -u origin main', { cwd: projectPath })
+      logStepSuccess(`Adding ${githubUser} as a contributor`)
+
+      await execCommand(`npx all-contributors add ${githubUser} code,doc`, {
+        cwd: projectPath,
+      })
+
+      await execCommand('npx prettier --write docs/README.md', {
+        cwd: projectPath,
+      })
+
+      await execCommand(
+        'npx prettier --write .all-contributorsrc --parser json-stringify',
+        {
+          cwd: projectPath,
+        }
+      )
+
+      await execCommand('git add .', { cwd: projectPath })
+      await execCommand('git commit --amend --no-edit', { cwd: projectPath })
+
+      logStepSuccess(`Pushing to GitHub at ${repositoryUrlOutput}`)
+      await execCommand('git push -u -f origin main', { cwd: projectPath })
     }
   } else {
     console.info()
@@ -371,9 +408,7 @@ async function main() {
 
   if (createRepo) {
     console.info(
-      `\nThe project is also available on GitHub at ${highlightOutput(
-        repositoryUrl
-      )}`
+      `\nThe project is also available on GitHub at ${repositoryUrlOutput}`
     )
   }
 

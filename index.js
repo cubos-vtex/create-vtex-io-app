@@ -396,7 +396,7 @@ async function main() {
     if (openInVsCode) {
       console.info()
       logStepSuccess(`Opening folder ${outputProjectPath} in VS Code`)
-      await execCommand(`code ${projectPath}`)
+      await execCommand(`code "${projectPath}"`)
     }
   }
 

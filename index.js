@@ -9,6 +9,7 @@ import { Octokit } from '@octokit/rest'
 import fsExtra from 'fs-extra'
 import inquirer from 'inquirer'
 import { replaceInFileSync } from 'replace-in-file'
+import simpleGit from 'simple-git'
 import yargs from 'yargs'
 
 import { getGitHubToken } from './github-auth.js'
@@ -308,9 +309,7 @@ async function main() {
 
     logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
 
-    await execCommand(`git remote add origin ${repositoryUrl}`, {
-      cwd: projectPath,
-    })
+    await simpleGit(projectPath).addRemote('origin', repositoryUrl)
   }
 
   logStepSuccess('Customizing the template')
@@ -370,7 +369,7 @@ async function main() {
       await execCommand('git commit --amend --no-edit', { cwd: projectPath })
 
       logStepSuccess(`Pushing to GitHub at ${repositoryUrlOutput}`)
-      await execCommand('git push -u -f origin main', { cwd: projectPath })
+      await simpleGit(projectPath).push('origin', 'main', ['-u', '-f'])
     }
   } else {
     console.info()

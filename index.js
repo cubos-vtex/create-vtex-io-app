@@ -9,7 +9,6 @@ import { Octokit } from '@octokit/rest'
 import fsExtra from 'fs-extra'
 import inquirer from 'inquirer'
 import { replaceInFileSync } from 'replace-in-file'
-import simpleGit from 'simple-git'
 import yargs from 'yargs'
 
 import { getGitHubToken } from './github-auth.js'
@@ -232,11 +231,12 @@ async function main() {
   let githubUser = ''
   let repositoryUrl = '<APP_REPOSITORY_URL>'
   let repositoryUrlOutput = ''
+  let githubToken = ''
 
   if (createRepo) {
     logStepSuccess('Creating GitHub repository')
 
-    const githubToken = await getGitHubToken()
+    githubToken = await getGitHubToken()
     const octokit = new Octokit({ auth: githubToken })
 
     const {
@@ -309,7 +309,25 @@ async function main() {
 
     logStepSuccess(`Repository successfully created at ${repositoryUrlOutput}`)
 
-    await simpleGit(projectPath).addRemote('origin', repositoryUrl)
+    console.info()
+
+    const { remoteOrigin } = await inquirer.prompt([
+      {
+        type: 'list',
+        name: 'remoteOrigin',
+        message: 'Which repository remote origin do you want to use?',
+        choices: [
+          { name: `Use HTTPS: ${repositoryUrl}`, value: repositoryUrl },
+          { name: `Use SSH: ${repo.ssh_url}`, value: repo.ssh_url },
+        ],
+      },
+    ])
+
+    console.info()
+
+    await execCommand(`git remote add origin ${remoteOrigin}`, {
+      cwd: projectPath,
+    })
   }
 
   logStepSuccess('Customizing the template')
@@ -369,7 +387,10 @@ async function main() {
       await execCommand('git commit --amend --no-edit', { cwd: projectPath })
 
       logStepSuccess(`Pushing to GitHub at ${repositoryUrlOutput}`)
-      await simpleGit(projectPath).push('origin', 'main', ['-u', '-f'])
+      await execCommand(
+        `git -c "http.extraheader=Authorization: Bearer ${githubToken}" push -u -f origin main`,
+        { cwd: projectPath }
+      )
     }
   } else {
     console.info()

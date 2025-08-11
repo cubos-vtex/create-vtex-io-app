@@ -388,7 +388,7 @@ async function main() {
 
       logStepSuccess(`Pushing to GitHub at ${repositoryUrlOutput}`)
       await execCommand(
-        `git -c "http.extraheader=Authorization: Bearer ${githubToken}" push -u -f origin main`,
+        `git push -u -f https://${githubToken}@github.com/${repositoryOwner}/${appName}.git main`,
         { cwd: projectPath }
       )
     }

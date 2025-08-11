@@ -6,7 +6,7 @@ import open from 'open'
 const GITHUB_DEVICE_CODE_URL = 'https://github.com/login/device/code'
 const GITHUB_OAUTH_URL = 'https://github.com/login/oauth/access_token'
 const CLIENT_ID = 'Ov23lijFMJGtxEKoBHgm'
-const SCOPES = ['repo', 'user']
+const SCOPES = ['repo', 'user', 'workflow']
 const GRANT_TYPE = 'urn:ietf:params:oauth:grant-type:device_code'
 
 const highlightOutput = (text) => styleText('cyan', text)

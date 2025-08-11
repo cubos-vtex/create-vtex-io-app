@@ -234,7 +234,7 @@ async function main() {
   let githubToken = ''
 
   if (createRepo) {
-    logStepSuccess('Creating GitHub repository')
+    logStepSuccess('Authenticating on GitHub')
 
     githubToken = await getGitHubToken()
     const octokit = new Octokit({ auth: githubToken })
@@ -244,6 +244,9 @@ async function main() {
     } = await octokit.rest.users.getAuthenticated().catch(() => {
       throw new Error('Invalid GitHub token')
     })
+
+    console.info()
+    logStepSuccess('You are authenticated on GitHub successfully')
 
     githubUser = login
     repositoryOwner = login

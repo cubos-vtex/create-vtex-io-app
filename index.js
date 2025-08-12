@@ -368,12 +368,18 @@ async function main() {
   let hasGitUserEmail = await checkGitUserEmail()
 
   if (!hasGitUserName && githubName) {
-    await execCommand(`git config --add user.name "${githubName}"`)
+    await execCommand(`git config --add user.name "${githubName}"`, {
+      cwd: projectPath,
+    })
+
     hasGitUserName = true
   }
 
   if (!hasGitUserEmail && githubEmail) {
-    await execCommand(`git config --add user.email "${githubEmail}"`)
+    await execCommand(`git config --add user.email "${githubEmail}"`, {
+      cwd: projectPath,
+    })
+
     hasGitUserEmail = true
   }
 

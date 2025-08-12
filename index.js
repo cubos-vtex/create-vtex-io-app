@@ -97,22 +97,24 @@ async function hasVsCode() {
   return execCommand('code --version').catch(() => false)
 }
 
-async function hasGitUser() {
-  const hasUserName = await execCommand('git config --get user.name')
+async function checkGitUserName() {
+  return execCommand('git config --get user.name')
     .then((output) => !!output.trim())
     .catch(() => false)
-
-  const hasUserEmail = await execCommand('git config --get user.email')
-    .then((output) => !!output.trim())
-    .catch(() => false)
-
-  return hasUserName && hasUserEmail
 }
 
-async function verifyVTEXAccount(account) {
+async function checkGitUserEmail() {
+  return execCommand('git config --get user.email')
+    .then((output) => !!output.trim())
+    .catch(() => false)
+}
+
+async function checkVTEXAccount(account) {
   return fetch(
     `https://${account}.myvtex.com/api/sessions?items=account.accountName`
-  ).then((r) => r.ok)
+  )
+    .then((r) => r.ok)
+    .catch(() => false)
 }
 
 async function main() {
@@ -136,10 +138,10 @@ async function main() {
             return 'Invalid app vendor. Use lowercase letters and numbers only.'
           }
 
-          const accountExists = await verifyVTEXAccount(account)
+          const accountExists = await checkVTEXAccount(account)
 
           if (!accountExists) {
-            return `VTEX account "${account}" does not exist. The app vendor must be an existing account.`
+            return `VTEX account "${account}" does not exist. The app vendor must be an existing VTEX account.`
           }
 
           return true
@@ -232,6 +234,8 @@ async function main() {
   let repositoryUrl = '<APP_REPOSITORY_URL>'
   let repositoryUrlOutput = ''
   let githubToken = ''
+  let githubName = ''
+  let githubEmail = ''
 
   if (createRepo) {
     logStepSuccess('Authenticating on GitHub')
@@ -240,7 +244,7 @@ async function main() {
     const octokit = new Octokit({ auth: githubToken })
 
     const {
-      data: { login },
+      data: { login, name, email },
     } = await octokit.rest.users.getAuthenticated().catch(() => {
       throw new Error('Invalid GitHub token')
     })
@@ -250,6 +254,8 @@ async function main() {
 
     githubUser = login
     repositoryOwner = login
+    githubName = name
+    githubEmail = email
 
     console.info()
 
@@ -358,9 +364,20 @@ async function main() {
     ],
   })
 
-  const gitOK = await hasGitUser()
+  let hasGitUserName = await checkGitUserName()
+  let hasGitUserEmail = await checkGitUserEmail()
 
-  if (gitOK) {
+  if (!hasGitUserName && githubName) {
+    await execCommand(`git config --add user.name "${githubName}"`)
+    hasGitUserName = true
+  }
+
+  if (!hasGitUserEmail && githubEmail) {
+    await execCommand(`git config --add user.email "${githubEmail}"`)
+    hasGitUserEmail = true
+  }
+
+  if (hasGitUserName && hasGitUserEmail) {
     logStepSuccess('Creating the first commit')
     await execCommand('git add .', { cwd: projectPath })
     await execCommand(
@@ -401,7 +418,7 @@ async function main() {
       'Unable to create the first commit. Add a git user name and email with these commands to create the first commit later:'
     )
     console.info('   - git config --global --add user.name "Your Name"')
-    console.info('   - git config --global --add user.name "your@email.com"\n')
+    console.info('   - git config --global --add user.email "your@email.com"\n')
   }
 
   if (await hasVsCode()) {
